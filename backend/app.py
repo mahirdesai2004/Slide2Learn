@@ -3,6 +3,39 @@ from services.ppt_parser import extract_slides_text
 from services.slide_classifier import classify_slide
 import os, shutil
 
+def structure_slide(text: str, category: str):
+    lines = [l.strip() for l in text.split("\n") if l.strip()]
+    title = lines[0] if lines else ""
+    points = lines[1:] if len(lines) > 1 else []
+
+    # Basic cleanup of bullet-like prefixes
+    cleaned = []
+    for p in points:
+        p = p.lstrip("-•* ").strip()
+        if p:
+            cleaned.append(p)
+    points = cleaned
+
+    # Map category to diagram type
+    if category == "process":
+        diagram_type = "flowchart"
+    elif category == "comparison":
+        diagram_type = "split"
+    elif category == "hierarchy":
+        diagram_type = "tree"
+    elif category == "definition":
+        diagram_type = "concept"
+    elif category == "list":
+        diagram_type = "bullets"
+    else:
+        diagram_type = "unknown"
+
+    return {
+        "title": title,
+        "points": points,
+        "diagram_type": diagram_type
+    }
+
 app = FastAPI(title="Slide2Learn Backend")
 
 UPLOAD_DIR = "uploads"
@@ -17,7 +50,10 @@ async def upload_ppt(file: UploadFile = File(...)):
 
     slides = extract_slides_text(file_path)
     for slide in slides:
-        slide["category"] = classify_slide(slide["raw_text"])
+        category = classify_slide(slide["raw_text"])
+        slide["category"] = category
+        structured = structure_slide(slide["raw_text"], category)
+        slide.update(structured)
 
     return {
         "filename": file.filename,

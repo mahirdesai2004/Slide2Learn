@@ -2,6 +2,24 @@ from fastapi import FastAPI, UploadFile, File
 from services.ppt_parser import extract_slides_text
 from services.slide_classifier import classify_slide
 import os, shutil
+from services.gemini_service import generate_memorization
+
+app = FastAPI(title="Slide2Learn Backend")
+
+MEMORY_CACHE = {}
+
+@app.post("/memorize-slide/{slide_no}")
+async def memorize_slide(slide_no: int, payload: dict):
+    raw_text = payload.get("raw_text")
+    if not raw_text:
+        return {"error": "raw_text required"}
+
+    if slide_no in MEMORY_CACHE:
+        return {"cached": True, "content": MEMORY_CACHE[slide_no]}
+
+    result = generate_memorization(raw_text)
+    MEMORY_CACHE[slide_no] = result
+    return {"cached": False, "content": result}
 
 def structure_slide(text: str, category: str):
     lines = [l.strip() for l in text.split("\n") if l.strip()]
@@ -36,7 +54,6 @@ def structure_slide(text: str, category: str):
         "diagram_type": diagram_type
     }
 
-app = FastAPI(title="Slide2Learn Backend")
 
 UPLOAD_DIR = "uploads"
 os.makedirs(UPLOAD_DIR, exist_ok=True)

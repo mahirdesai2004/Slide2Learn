@@ -4,3 +4,5 @@ python-pptx
 python-multipart
 pydantic
 google-generativeai
+python-dotenv
+google-genai

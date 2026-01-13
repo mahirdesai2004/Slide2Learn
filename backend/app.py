@@ -1,5 +1,6 @@
 from fastapi import FastAPI, UploadFile, File
 from services.ppt_parser import extract_slides_text
+from services.slide_classifier import classify_slide
 import os, shutil
 
 app = FastAPI(title="Slide2Learn Backend")
@@ -15,6 +16,8 @@ async def upload_ppt(file: UploadFile = File(...)):
         shutil.copyfileobj(file.file, buffer)
 
     slides = extract_slides_text(file_path)
+    for slide in slides:
+        slide["category"] = classify_slide(slide["raw_text"])
 
     return {
         "filename": file.filename,

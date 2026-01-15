@@ -2,61 +2,66 @@ from fastapi import FastAPI, UploadFile, File
 from services.ppt_parser import extract_slides_text
 from services.slide_classifier import classify_slide
 import os, shutil
-from services.gemini_service import generate_memorization
+
+from mcp.router import run_mcp
+from memory.session_memory import get_session_summary
 
 app = FastAPI(title="Slide2Learn Backend")
 
-MEMORY_CACHE = {}
+# ---------------- SESSION ANALYTICS ----------------
 
-@app.post("/memorize-slide/{slide_no}")
-async def memorize_slide(slide_no: int, payload: dict):
+@app.get("/session/{session_id}/summary")
+async def session_summary(session_id: str):
+    return get_session_summary(session_id)
+
+# ---------------- MCP ENDPOINT ----------------
+
+@app.post("/mcp/{mode}/{slide_no}")
+async def mcp_endpoint(mode: str, slide_no: int, payload: dict):
     raw_text = payload.get("raw_text")
+    category = payload.get("category", "unknown")
+    session_id = payload.get("session_id", "default")
+
     if not raw_text:
         return {"error": "raw_text required"}
 
-    if slide_no in MEMORY_CACHE:
-        return {"cached": True, "content": MEMORY_CACHE[slide_no]}
+    result = run_mcp(
+        mode=mode,
+        raw_text=raw_text,
+        category=category,
+        session_id=session_id
+    )
 
-    result = generate_memorization(raw_text)
-    MEMORY_CACHE[slide_no] = result
-    return {"cached": False, "content": result}
+    return {
+        "slide_no": slide_no,
+        **result
+    }
+
+# ---------------- PPT UPLOAD ----------------
+
+UPLOAD_DIR = "uploads"
+os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 def structure_slide(text: str, category: str):
     lines = [l.strip() for l in text.split("\n") if l.strip()]
     title = lines[0] if lines else ""
     points = lines[1:] if len(lines) > 1 else []
 
-    # Basic cleanup of bullet-like prefixes
-    cleaned = []
-    for p in points:
-        p = p.lstrip("-•* ").strip()
-        if p:
-            cleaned.append(p)
-    points = cleaned
+    points = [p.lstrip("-•* ").strip() for p in points if p.strip()]
 
-    # Map category to diagram type
-    if category == "process":
-        diagram_type = "flowchart"
-    elif category == "comparison":
-        diagram_type = "split"
-    elif category == "hierarchy":
-        diagram_type = "tree"
-    elif category == "definition":
-        diagram_type = "concept"
-    elif category == "list":
-        diagram_type = "bullets"
-    else:
-        diagram_type = "unknown"
+    diagram_map = {
+        "process": "flowchart",
+        "comparison": "split",
+        "hierarchy": "tree",
+        "definition": "concept",
+        "list": "bullets"
+    }
 
     return {
         "title": title,
         "points": points,
-        "diagram_type": diagram_type
+        "diagram_type": diagram_map.get(category, "unknown")
     }
-
-
-UPLOAD_DIR = "uploads"
-os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 @app.post("/upload-ppt")
 async def upload_ppt(file: UploadFile = File(...)):
@@ -66,11 +71,11 @@ async def upload_ppt(file: UploadFile = File(...)):
         shutil.copyfileobj(file.file, buffer)
 
     slides = extract_slides_text(file_path)
+
     for slide in slides:
         category = classify_slide(slide["raw_text"])
         slide["category"] = category
-        structured = structure_slide(slide["raw_text"], category)
-        slide.update(structured)
+        slide.update(structure_slide(slide["raw_text"], category))
 
     return {
         "filename": file.filename,

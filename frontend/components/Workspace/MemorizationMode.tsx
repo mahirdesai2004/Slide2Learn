@@ -122,14 +122,23 @@ const parseAdventureFromMarkdown = (text: string) => {
 
 export default function MemorizationMode({ slide }: MemorizationModeProps) {
     const [mode, setMode] = useState<Mode>('memorize');
+    const [viewScope, setViewScope] = useState<'slide' | 'all'>('slide');
     const [aiContent, setAiContent] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
     const [contentCache, setContentCache] = useState<Record<string, string>>({});
 
     const { currentSlideIndex, slides, setCurrentSlideIndex } = useSlideStore();
 
-    const fetchAiContent = useCallback(async (selectedMode: Mode, force: boolean = false) => {
-        const cacheKey = `${slide.slide_no}-${selectedMode}`;
+    // Fake Slide for All-Scope Visualization
+    const allScopeSlide: Slide = {
+        ...slide,
+        slide_no: 0,
+        title: "Full Presentation Overview",
+        points: aiContent ? aiContent.split('\n').filter(l => l.length > 10).slice(0, 15) : []
+    };
+
+    const fetchAiContent = useCallback(async (selectedMode: Mode, scope: 'slide' | 'all', force: boolean = false) => {
+        const cacheKey = scope === 'slide' ? `${slide.slide_no}-${selectedMode}` : `all-${selectedMode}`;
 
         // cache hit
         if (!force && contentCache[cacheKey]) {
@@ -138,40 +147,42 @@ export default function MemorizationMode({ slide }: MemorizationModeProps) {
         }
 
         setLoading(true);
-        // Clear current content if regenerating/fetching new to show loading state cleanly
-        // But if just switching modes and fetching, maybe keep old or show spinner?
-        // Let's clear to avoid confusion.
-        if (force || !contentCache[cacheKey]) {
-            setAiContent(null);
-        }
+        if (force || !contentCache[cacheKey]) setAiContent(null);
 
         try {
-            const res = await api.post(`/mcp/${selectedMode}/${slide.slide_no}`, {
-                raw_text: slide.raw_text,
-                category: slide.category,
-                session_id: 'demo-user'
-            });
-            // MCP Spec: Output is ALWAYS formatted TEXT.
-            const output = res.data.output || "No content generated.";
+            let res;
+            if (scope === 'slide') {
+                res = await api.post(`/mcp/${selectedMode}/${slide.slide_no}`, {
+                    raw_text: slide.raw_text, category: slide.category, session_id: 'demo-user'
+                });
+            } else {
+                const allText = slides.map(s => `[Slide ${s.slide_no}: ${s.title}]\n${s.raw_text}`).join("\n\n");
+                res = await api.post(`/mcp/${selectedMode}/all`, {
+                    all_text: allText, session_id: 'demo-user'
+                });
+            }
 
+            const output = res.data.output || "No content generated.";
             setAiContent(output);
             setContentCache(prev => ({ ...prev, [cacheKey]: output }));
 
-        } catch (e) {
+        } catch (e: any) {
             console.error("MCP Fetch Error", e);
-            setAiContent("Failed to generate content. Please ensure backend is running.");
+            const detail = e.response?.data?.detail;
+            const msg = detail ? JSON.stringify(detail) : (e.message || "Failed to generate content.");
+            setAiContent(`Error: ${msg}`);
         } finally {
             setLoading(false);
         }
-    }, [slide, contentCache]);
+    }, [slide, slides, contentCache]);
 
     // Fetch on Mode Change OR Slide Change
     useEffect(() => {
-        fetchAiContent(mode);
-    }, [mode, slide.slide_no, fetchAiContent]); // Only depend on slide_no to avoid object ref issues
+        fetchAiContent(mode, viewScope);
+    }, [mode, viewScope, slide.slide_no, fetchAiContent]);
 
     const handleRegenerate = () => {
-        fetchAiContent(mode, true);
+        fetchAiContent(mode, viewScope, true);
     };
 
     const handlePrev = () => {
@@ -192,27 +203,35 @@ export default function MemorizationMode({ slide }: MemorizationModeProps) {
     return (
         <div className="w-full max-w-6xl mx-auto space-y-6 relative pb-24 px-4">
 
-            {/* Mode Selectors */}
-            <div className="flex flex-wrap justify-center gap-2 p-1.5 bg-zinc-900/80 backdrop-blur-md rounded-2xl border border-zinc-800 w-fit mx-auto shadow-xl sticky top-4 z-40">
-                {MODES.map((m) => {
-                    const Icon = m.icon;
-                    const isActive = mode === m.id;
-                    return (
-                        <button
-                            key={m.id}
-                            onClick={() => setMode(m.id)}
-                            className={cn(
-                                "flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200",
-                                isActive
-                                    ? "bg-indigo-600 text-white shadow-lg shadow-indigo-500/25"
-                                    : "text-zinc-400 hover:text-white hover:bg-zinc-800"
-                            )}
-                        >
-                            <Icon className="w-4 h-4" />
-                            {m.label}
-                        </button>
-                    );
-                })}
+            {/* Mode Selectors & Scope Toggle */}
+            <div className="sticky top-4 z-40 flex flex-col md:flex-row items-center justify-center gap-4">
+
+                <div className="flex flex-wrap justify-center gap-2 p-1.5 bg-zinc-900/80 backdrop-blur-md rounded-2xl border border-zinc-800 w-fit mx-auto shadow-xl">
+                    {MODES.map((m) => {
+                        const Icon = m.icon;
+                        const isActive = mode === m.id;
+                        return (
+                            <button
+                                key={m.id}
+                                onClick={() => setMode(m.id)}
+                                className={cn(
+                                    "flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200",
+                                    isActive
+                                        ? "bg-indigo-600 text-white shadow-lg shadow-indigo-500/25"
+                                        : "text-zinc-400 hover:text-white hover:bg-zinc-800"
+                                )}
+                            >
+                                <Icon className="w-4 h-4" />
+                                {m.label}
+                            </button>
+                        );
+                    })}
+                </div>
+
+                <div className="flex bg-zinc-900/80 backdrop-blur-md rounded-2xl border border-zinc-800 p-1.5 shadow-xl">
+                    <button onClick={() => setViewScope('slide')} className={cn("px-4 py-2 rounded-xl text-sm font-medium transition-all", viewScope === 'slide' ? "bg-zinc-700 text-white" : "text-zinc-500 hover:text-zinc-300")}>Slide</button>
+                    <button onClick={() => setViewScope('all')} className={cn("px-4 py-2 rounded-xl text-sm font-medium transition-all", viewScope === 'all' ? "bg-emerald-600 text-white shadow-lg" : "text-zinc-500 hover:text-zinc-300")}>Full Deck</button>
+                </div>
             </div>
 
             {/* Main Content Area */}
@@ -220,8 +239,11 @@ export default function MemorizationMode({ slide }: MemorizationModeProps) {
 
                 {/* Visualizer Handling - Only in Visualize Mode */}
                 {mode === 'visualize' && (
-                    <div className="mb-8 w-full h-[600px] rounded-2xl overflow-hidden border border-zinc-800">
-                        <VisualizationMode slide={slide} />
+                    <div className="mb-8 w-full h-[600px] rounded-2xl overflow-hidden border border-zinc-800 relative group">
+                        <div className="absolute top-2 right-2 z-10 bg-black/50 px-3 py-1 rounded-full text-xs text-white backdrop-blur border border-white/10">
+                            {viewScope === 'all' ? "Global Concept Map" : "Slide Diagram"}
+                        </div>
+                        <VisualizationMode slide={viewScope === 'all' ? allScopeSlide : slide} />
                     </div>
                 )}
 
@@ -262,7 +284,13 @@ export default function MemorizationMode({ slide }: MemorizationModeProps) {
                                 return (
                                     <>
                                         <div className="prose prose-invert max-w-none text-zinc-300 leading-relaxed text-base font-light space-y-4">
-                                            <ReactMarkdown>{mainContent}</ReactMarkdown>
+                                            <ReactMarkdown
+                                                components={{
+                                                    strong: ({ children }) => <span className="text-cyan-300 font-bold bg-cyan-950/50 border border-cyan-500/30 px-1.5 py-0.5 rounded mx-0.5 shadow-[0_0_10px_rgba(34,211,238,0.2)]">{children}</span>
+                                                }}
+                                            >
+                                                {mainContent}
+                                            </ReactMarkdown>
                                         </div>
 
                                         {answersContent && (
@@ -274,7 +302,13 @@ export default function MemorizationMode({ slide }: MemorizationModeProps) {
                                                         </span>
                                                     </summary>
                                                     <div className="mt-4 p-4 bg-zinc-900/50 rounded-xl border border-zinc-800 prose prose-invert max-w-none text-zinc-400">
-                                                        <ReactMarkdown>{answersContent}</ReactMarkdown>
+                                                        <ReactMarkdown
+                                                            components={{
+                                                                strong: ({ children }) => <span className="text-cyan-300 font-bold">{children}</span>
+                                                            }}
+                                                        >
+                                                            {answersContent}
+                                                        </ReactMarkdown>
                                                     </div>
                                                 </details>
                                             </div>
@@ -341,7 +375,13 @@ function InteractiveAdventure({ data }: { data: any }) {
                     <Gamepad2 className="w-4 h-4" /> Current Scenario
                 </div>
                 <div className="prose prose-invert max-w-none text-lg leading-relaxed text-zinc-200">
-                    <ReactMarkdown>{data.scenario}</ReactMarkdown>
+                    <ReactMarkdown
+                        components={{
+                            strong: ({ children }) => <span className="text-cyan-300 font-bold">{children}</span>
+                        }}
+                    >
+                        {data.scenario}
+                    </ReactMarkdown>
                 </div>
             </div>
 
@@ -405,7 +445,13 @@ function InteractiveAdventure({ data }: { data: any }) {
                         </h4>
 
                         <div className="prose prose-invert max-w-none text-zinc-300">
-                            <ReactMarkdown>{outcomeText}</ReactMarkdown>
+                            <ReactMarkdown
+                                components={{
+                                    strong: ({ children }) => <span className="text-cyan-300 font-bold">{children}</span>
+                                }}
+                            >
+                                {outcomeText}
+                            </ReactMarkdown>
                         </div>
 
                         <button

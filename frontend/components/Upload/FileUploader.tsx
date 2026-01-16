@@ -32,7 +32,7 @@ export default function FileUploader() {
             router.push('/workspace');
         } catch (error) {
             console.error('Upload failed', error);
-            alert('Upload failed. Please ensure backend is running at localhost:8000');
+            alert('Upload failed. Please ensure the backend is running and reachable.');
         } finally {
             setIsLoading(false);
         }

@@ -35,6 +35,29 @@ async def session_summary(session_id: str):
 
 from services.gemini_service import generate_comprehensive_review
 
+@app.post("/mcp/{mode}/all")
+async def mcp_all_endpoint(mode: str, payload: dict):
+    all_text = payload.get("all_text")
+    session_id = payload.get("session_id", "default")
+    regenerate = payload.get("regenerate", False)
+
+    if not all_text:
+        return {"error": "all_text required"}
+
+    # Use 'general' category for full deck
+    result = run_mcp(
+        mode=mode,
+        raw_text=all_text[:30000], # Safety limit for tokens
+        category="general",
+        session_id=session_id,
+        regenerate=regenerate
+    )
+
+    return {
+        "scope": "all",
+        **result
+    }
+
 @app.post("/mcp/{mode}/{slide_no}")
 async def mcp_endpoint(mode: str, slide_no: int, payload: dict):
     raw_text = payload.get("raw_text")
@@ -57,6 +80,8 @@ async def mcp_endpoint(mode: str, slide_no: int, payload: dict):
         "slide_no": slide_no,
         **result
     }
+
+
 
 @app.post("/mcp/review_all")
 async def review_all_endpoint(payload: dict):

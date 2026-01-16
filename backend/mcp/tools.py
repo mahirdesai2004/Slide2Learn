@@ -15,14 +15,14 @@ def memorize_prompt(ctx: dict) -> str:
     return (
         f"{BASE_RULES}\n\n"
         "Task:\n"
-        "Convert the slide into content optimized for memorization.\n\n"
+        "Convert the slide into content optimized for memorization.\n"
+        "**highlight** only the single most critical term per point using bold text (e.g. **keyword**). Keep it minimal.\n\n"
         f"Slide Title:\n{ctx.get('title', '')}\n\n"
         f"Slide Content:\n{ctx.get('raw_text', '')}\n\n"
         "Required Output Structure:\n"
         "1. Simple explanation\n"
         "2. One mnemonic\n"
         "3. One real-world example\n"
-        "4. Two quiz questions with answers\n"
     )
 
 def quiz_prompt(ctx: dict) -> str:
@@ -52,13 +52,13 @@ def visualize_prompt(ctx: dict) -> str:
     return (
         f"{BASE_RULES}\n\n"
         "Task:\n"
-        "Describe a diagram structure.\n\n"
-        "Return VALID JSON ONLY (No Markdown, No Emojis):\n"
-        "{\n"
-        '  "diagram_type": "flowchart | bullets | split | tree | concept",\n'
-        '  "nodes": [],\n'
-        '  "edges": []\n'
-        "}\n\n"
+        "Identify the core concepts for a mind map.\n\n"
+        "Rules:\n"
+        "- List exactly 10 key concepts\n"
+        "- Use short, concise phrases (max 4 words)\n"
+        "- No special characters or markdown\n"
+        "- No emojis\n"
+        "- Format as a simple list (one per line)\n\n"
         f"Slide Content:\n{ctx.get('raw_text', '')}\n"
     )
 

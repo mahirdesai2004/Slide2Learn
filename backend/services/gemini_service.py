@@ -29,17 +29,11 @@ def generate_memorization(slide_text: str, depth: str = "standard") -> str:
         prompt = f"""
 Analyze the following slide and generate RICH, ELABORATE study content.
 This is a 'Regenerate' request, so avoid generic summaries.
+**highlight** only the single most critical term per point using bold text (e.g. **keyword**). Keep it minimal.
 
 1) **Deep Dive Explanation**: A detailed, comprehensive explanation (4-6 lines) covering nuances and "why it matters".
 2) **Advanced Mnemonic**: A creative memory aid.
 3) **Real-World Application**: A concrete, detailed example.
-4) **Challenge Quiz**: 3 NEW, challenging multiple-choice questions. 
-   STRICT FORMAT (Markdown compatible):
-   Question: [Question Text]
-   A) [Option A]
-   B) [Option B]
-   C) [Option C]
-   Correct Answer: [Full Text of Correct Option]
 
 Slide Content:
 {slide_text}
@@ -47,17 +41,11 @@ Slide Content:
     else:
         prompt = f"""
 Convert the following slide into study-friendly content optimized for memorization.
+**highlight** only the single most critical term per point using bold text (e.g. **keyword**). Keep it minimal.
 
 1) **Core Concept**: A simple explanation (2–3 lines).
 2) **Mnemonic**: A memory trick or acronym.
 3) **Example**: One easy real-world example.
-4) **Quiz**: 2 simple review questions.
-   STRICT FORMAT (Markdown compatible):
-   Question: [Question Text]
-   A) [Option A]
-   B) [Option B]
-   C) [Option C]
-   Correct Answer: [Full Text of Correct Option]
 
 Slide:
 {slide_text}

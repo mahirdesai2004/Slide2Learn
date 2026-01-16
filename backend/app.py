@@ -6,13 +6,20 @@ import os, shutil
 from mcp.router import run_mcp
 from memory.session_memory import get_session_summary
 
+
 app = FastAPI(title="Slide2Learn Backend")
 
 from fastapi.middleware.cors import CORSMiddleware
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://localhost:3001"],
+    allow_origins=[
+        "http://localhost:3000",
+        "http://localhost:3001",
+        "http://localhost:5173",              # Vite (if used)
+        "https://slide2learn.onrender.com",   # backend itself (safe)
+        "https://<frontend-domain>.onrender.com"  # frontend deploy URL
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

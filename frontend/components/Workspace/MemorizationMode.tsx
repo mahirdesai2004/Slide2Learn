@@ -358,13 +358,20 @@ function InteractiveAdventure({ data }: { data: any }) {
     // Helper to determine sentiment based on text content (Basic keyword check)
     const getVariant = (text: string) => {
         const lower = text.toLowerCase();
-        if (lower.includes("fail") || lower.includes("risk") || lower.includes("missed") || lower.includes("wrong")) return "danger";
-        if (lower.includes("success") || lower.includes("great") || lower.includes("optimal") || lower.includes("win")) return "success";
+        // Check for positive keywords FIRST (and exclude "unsuccessful" or "not success" if needed, but usually 'success' implies win)
+        if (lower.includes("success") || lower.includes("great") || lower.includes("optimal") || lower.includes("win") || lower.includes("victory") || lower.includes("excellent") || lower.includes("correct") || lower.includes("good") || lower.includes("triumph")) return "success";
+
+        // Then check for negative keywords
+        if (lower.includes("failure") || lower.includes("failed") || lower.includes("risk") || lower.includes("missed") || lower.includes("wrong") || lower.includes("incorrect") || lower.includes("bad") || lower.includes("consequence") || lower.includes("disaster") || lower.includes("crisis")) return "danger";
+
         return "neutral";
     };
 
     const outcomeText = selected ? (data.outcomes[selected] || data.outcomes[selected.toLowerCase()] || "Result not found.") : "";
     const variant = getVariant(outcomeText);
+
+    // Identify the correct option ID by scanning outcomes for success keywords
+    const correctOptionId = Object.keys(data.outcomes).find(key => getVariant(data.outcomes[key]) === 'success');
 
     return (
         <div className="max-w-4xl mx-auto py-6">
@@ -394,24 +401,58 @@ function InteractiveAdventure({ data }: { data: any }) {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {data.options.map((opt: any) => {
                     const isSelected = selected === opt.id;
+                    const isCorrect = opt.id === correctOptionId;
+                    const isRevealed = selected !== null;
+
+                    let buttonStyles = "bg-zinc-900/50 border-zinc-800 hover:bg-zinc-800 hover:border-zinc-700 hover:-translate-y-1";
+                    let badgeStyles = "bg-zinc-800 text-zinc-600 group-hover:bg-zinc-700 group-hover:text-zinc-400";
+
+                    if (isRevealed) {
+                        if (isCorrect) {
+                            // Always show GREEN for the correct answer
+                            buttonStyles = "bg-emerald-950/40 border-emerald-500/50 ring-2 ring-emerald-500/20";
+                            badgeStyles = "bg-emerald-600 text-white";
+                        } else if (isSelected && !isCorrect) {
+                            // Show RED if they picked wrong
+                            buttonStyles = "bg-red-950/40 border-red-500/50 opacity-100";
+                            badgeStyles = "bg-red-600 text-white";
+                        } else {
+                            // Fade out others
+                            buttonStyles = "opacity-40 grayscale border-transparent";
+                        }
+                    } else if (isSelected) {
+                        buttonStyles = "bg-zinc-800 border-indigo-500 ring-2 ring-indigo-500/20";
+                        badgeStyles = "bg-indigo-600 text-white";
+                    }
+
                     return (
                         <button
                             key={opt.id}
-                            onClick={() => setSelected(opt.id)}
+                            onClick={() => !isRevealed && setSelected(opt.id)}
+                            disabled={isRevealed}
                             className={cn(
                                 "flex flex-col items-center p-6 rounded-2xl border transition-all duration-300 text-center h-full gap-4 group relative overflow-hidden",
-                                isSelected
-                                    ? "bg-zinc-800 border-indigo-500 ring-2 ring-indigo-500/20"
-                                    : "bg-zinc-900/50 border-zinc-800 hover:bg-zinc-800 hover:border-zinc-700 hover:-translate-y-1"
+                                buttonStyles
                             )}
                         >
                             <div className={cn(
                                 "text-3xl font-black w-12 h-12 flex items-center justify-center rounded-full transition-colors",
-                                isSelected ? "bg-indigo-600 text-white" : "bg-zinc-800 text-zinc-600 group-hover:bg-zinc-700 group-hover:text-zinc-400"
+                                badgeStyles
                             )}>
                                 {opt.id}
                             </div>
                             <span className="font-medium text-sm text-zinc-300 group-hover:text-white leading-snug">{opt.text}</span>
+
+                            {isRevealed && isCorrect && (
+                                <div className="absolute top-2 right-2 text-emerald-400 animate-in fade-in zoom-in">
+                                    <Check className="w-5 h-5" />
+                                </div>
+                            )}
+                            {isRevealed && isSelected && !isCorrect && (
+                                <div className="absolute top-2 right-2 text-red-400 animate-in fade-in zoom-in">
+                                    <X className="w-5 h-5" />
+                                </div>
+                            )}
                         </button>
                     );
                 })}

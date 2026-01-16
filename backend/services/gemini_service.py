@@ -73,6 +73,26 @@ Slide:
         print(f"Error generating content: {e}")
         return f"Error using Gemini API: {str(e)}"
 
+def generate_raw_content(prompt: str) -> str:
+    """
+    Generate content directly from a provided prompt without wrapping it in a template.
+    Used for specific MCP modes (Quiz, Game, Visualize, Revise).
+    """
+    client = get_client()
+    
+    if not client:
+        return "⚠️ AI Generation Unavailable"
+
+    try:
+        response = client.models.generate_content(
+            model=MODEL_NAME,
+            contents=prompt
+        )
+        return response.text
+    except Exception as e:
+        print(f"Error generating raw content: {e}")
+        return f"Error using Gemini API: {str(e)}"
+
 def generate_comprehensive_review(all_slides_text: str) -> str:
     """
     Generate a comprehensive quiz and review for the entire presentation.

@@ -1,5 +1,5 @@
 import re
-from mcp.evaluator import score_game
+
 
 def parse_game_answers(text: str) -> dict:
     """

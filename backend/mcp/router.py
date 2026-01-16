@@ -1,6 +1,6 @@
 from mcp.context_builder import build_context
 from mcp.tools import PROMPT_MAP
-from services.gemini_service import generate_memorization
+from services.gemini_service import generate_memorization, generate_raw_content
 from memory.session_memory import record_attempt
 
 def auto_detect_mode(ctx: dict) -> str:
@@ -35,7 +35,8 @@ def run_mcp(mode: str, raw_text: str, category: str | None, session_id: str, reg
     else:
         # Default behavior for other modes - use tools.py prompt
         prompt = PROMPT_MAP[mode](ctx)
-        output = generate_memorization(prompt) 
+        # Use generate_raw_content to avoid wrapping the prompt in the memorization template
+        output = generate_raw_content(prompt) 
 
     if mode in ["game", "quiz"]:
         record_attempt(

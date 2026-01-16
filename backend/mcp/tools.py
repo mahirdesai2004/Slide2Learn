@@ -29,13 +29,12 @@ def quiz_prompt(ctx: dict) -> str:
     return (
         f"{BASE_RULES}\n\n"
         "Task:\n"
-        "Generate exam-oriented questions.\n\n"
+        "Generate 5 exam-oriented questions (MCQ & Short Answer).\n\n"
         f"Slide Content:\n{ctx.get('raw_text', '')}\n\n"
-        "Rules:\n"
-        "- 5 questions\n"
-        "- Mix MCQ + short answers\n"
-        "- Medium difficulty\n"
-        "- Answers at end\n"
+        "STRICT FORMATTING RULES:\n"
+        "- Use **Bold** for Question numbering (e.g. **1. Question...**)\n"
+        "- Use Lists for Options (e.g. - A) ...)\n"
+        "- Put ALL Answers at the very bottom under a 'ANSWERS:' header\n"
     )
 
 def revise_prompt(ctx: dict) -> str:
@@ -54,7 +53,7 @@ def visualize_prompt(ctx: dict) -> str:
         f"{BASE_RULES}\n\n"
         "Task:\n"
         "Describe a diagram structure.\n\n"
-        "Return VALID JSON ONLY:\n"
+        "Return VALID JSON ONLY (No Markdown, No Emojis):\n"
         "{\n"
         '  "diagram_type": "flowchart | bullets | split | tree | concept",\n'
         '  "nodes": [],\n'
@@ -67,41 +66,39 @@ def game_prompt(ctx: dict) -> str:
     return f"""
 {BASE_RULES}
 
-You are a learning game designer.
+You are a Dungeon Master for a text-based RPG.
 
 Task:
-Turn the slide into a memory-based learning game.
+Create a "Choose Your Own Adventure" scenario based on this slide.
 
-Rules:
-- No markdown
-- No emojis
-- Keep language simple
-- Make it interactive
+Structure:
+1. **The Scenario**: Set a high-stakes scene (Sci-Fi, Fantasy, or Corporate Espionage) where the user acts as a character applying the Slide's concept.
+2. **The Crisis**: Something goes wrong that requires the specific knowledge from the slide to fix.
+3. **The Choice**: Present 3 distinct Actions (A, B, C) the user can take. Only ONE is the "Optimal Application" of the concept. The others are flawed or risky.
 
-Game Structure:
-1. Quick challenge description
-2. 3 fill-in-the-blank questions
-3. 2 true/false questions
-4. 1 rapid-fire question (answer in one word)
-
-IMPORTANT:
-At the end, output answers EXACTLY in this format:
-
-ANSWERS:
-FILL:
-1=
-2=
-3=
-TF:
-1=
-2=
-RAPID=
+**Outcomes (Hidden)**:
+Put the results of each choice in the `ANSWERS:` section.
+- For the Good Choice: Describe the victory and *why* it worked.
+- For Bad Choices: Describe the humorous or catastrophic failure and *what concept was missed*.
 
 Slide Title:
 {ctx.get('title', '')}
 
 Slide Content:
 {ctx.get('raw_text', '')}
+
+STRICT FORMAT:
+[Scenario Description]
+...
+**What do you do?**
+- **Option A**: [Action]
+- **Option B**: [Action]
+- **Option C**: [Action]
+
+ANSWERS:
+**Outcome A:** [Result]
+**Outcome B:** [Result]
+**Outcome C:** [Result]
 """
 
 # Added 'game' to the map

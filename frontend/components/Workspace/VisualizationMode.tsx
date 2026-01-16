@@ -1,11 +1,11 @@
 'use client';
 
-import React, { useMemo } from 'react';
-import { ReactFlow, Background, Controls, Node, Edge, Position } from '@xyflow/react';
+import { ReactFlow, Background, Node, Edge, Position, ReactFlowInstance } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import { Slide } from '@/store/useSlideStore';
-import { Network, Sparkles, ZoomIn, ZoomOut, Maximize } from 'lucide-react';
+import { Network, Sparkles, ZoomIn, ZoomOut, Maximize, Minimize } from 'lucide-react';
 import dagre from 'dagre';
+import { useState, useMemo, useEffect } from 'react';
 
 interface VisualizationModeProps {
     slide: Slide;
@@ -51,6 +51,18 @@ const getLayoutedElements = (nodes: Node[], edges: Edge[]) => {
 };
 
 export default function VisualizationMode({ slide }: VisualizationModeProps) {
+    const [rfInstance, setRfInstance] = useState<ReactFlowInstance | null>(null);
+    const [isFullScreen, setIsFullScreen] = useState(false);
+
+    // Handle ESC key to exit full screen
+    useEffect(() => {
+        const handleEsc = (e: KeyboardEvent) => {
+            if (e.key === 'Escape' && isFullScreen) setIsFullScreen(false);
+        };
+        window.addEventListener('keydown', handleEsc);
+        return () => window.removeEventListener('keydown', handleEsc);
+    }, [isFullScreen]);
+
     const { nodes, edges } = useMemo(() => { // Removed useNodesState/useEdgesState for static view stability
         if (!slide || !slide.title) return { nodes: [], edges: [] };
 
@@ -121,7 +133,10 @@ export default function VisualizationMode({ slide }: VisualizationModeProps) {
     }
 
     return (
-        <div className="w-full h-full min-h-[600px] border border-border rounded-3xl overflow-hidden relative group bg-zinc-950">
+        <div className={`
+            w-full border border-border rounded-3xl overflow-hidden relative group bg-zinc-950 transition-all duration-300
+            ${isFullScreen ? 'fixed inset-0 z-[9999] w-screen h-screen m-0 rounded-none' : 'h-full min-h-[600px]'}
+        `}>
             {/* ... Header ... */}
             <div className="absolute top-6 left-6 z-10 flex flex-col gap-2 pointer-events-none">
                 <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-indigo-500/10 text-indigo-400 text-xs font-medium border border-indigo-500/20 w-fit backdrop-blur-md">
@@ -136,15 +151,48 @@ export default function VisualizationMode({ slide }: VisualizationModeProps) {
                 nodes={nodes}
                 edges={edges}
                 fitView
-                fitViewOptions={{ padding: 0.2 }}
+                fitViewOptions={{ padding: 0.1 }}
                 minZoom={0.1}
                 maxZoom={2}
+                onInit={setRfInstance}
                 className="bg-zinc-950"
             // Removed onNodesChange/onEdgesChange to keep it read-only but interactive (draggable)
             >
                 <Background color="#3f3f46" gap={25} size={1.5} />
-                <Controls className="bg-zinc-900 border-zinc-800 fill-zinc-400" />
             </ReactFlow>
+
+            {/* Custom Zoom Controls */}
+            <div className="absolute bottom-6 left-6 z-10 flex items-center gap-2 pointer-events-auto">
+                <button
+                    onClick={() => rfInstance?.zoomIn()}
+                    className="p-2 bg-zinc-800/80 backdrop-blur-md border border-zinc-700 rounded-lg text-zinc-300 hover:text-white hover:bg-zinc-700 transition"
+                    title="Zoom In"
+                >
+                    <ZoomIn className="w-5 h-5" />
+                </button>
+                <button
+                    onClick={() => rfInstance?.zoomOut()}
+                    className="p-2 bg-zinc-800/80 backdrop-blur-md border border-zinc-700 rounded-lg text-zinc-300 hover:text-white hover:bg-zinc-700 transition"
+                    title="Zoom Out"
+                >
+                    <ZoomOut className="w-5 h-5" />
+                </button>
+                <div className="w-px h-6 bg-zinc-700 mx-1" /> {/* Separator */}
+                <button
+                    onClick={() => {
+                        setIsFullScreen(!isFullScreen);
+                        // Optional: Reset view slightly after transition for smoothness
+                        setTimeout(() => rfInstance?.fitView({ padding: 0.1 }), 100);
+                    }}
+                    className={`p-2 backdrop-blur-md border rounded-lg transition ${isFullScreen
+                        ? 'bg-indigo-600/80 border-indigo-500 text-white hover:bg-indigo-600'
+                        : 'bg-zinc-800/80 border-zinc-700 text-zinc-300 hover:text-white hover:bg-zinc-700'
+                        }`}
+                    title={isFullScreen ? "Exit Full Screen" : "Full Screen"}
+                >
+                    {isFullScreen ? <Minimize className="w-5 h-5" /> : <Maximize className="w-5 h-5" />}
+                </button>
+            </div>
 
             {/* ... Footer ... */}
             <div className="absolute bottom-6 right-6 z-10 pointer-events-none">
